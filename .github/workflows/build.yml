@@ -1,0 +1,30 @@
+name: Build ArmorPaint (Windows)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * 0'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: armory3d/armorpaint
+
+      - uses: microsoft/setup-msbuild@v2
+
+      - name: Generate VS project
+        working-directory: paint
+        run: ..\base\make
+
+      - name: Build
+        working-directory: paint
+        run: msbuild build\ArmorPaint.sln /p:Configuration=Release /p:Platform=x64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ArmorPaint-Windows
+          path: paint/build
+          retention-days: 7
