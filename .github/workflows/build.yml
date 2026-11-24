@@ -20,15 +20,23 @@ jobs:
         shell: cmd
         run: ..\base\make
 
-      - name: Find the .sln
+      - name: Find the project file
         id: sln
-        working-directory: paint
         shell: pwsh
         run: |
-          Get-ChildItem -Recurse -Depth 3 -Filter *.sln | ForEach-Object { $_.FullName }
-          $sln = Get-ChildItem -Recurse -Filter *.sln | Select-Object -First 1
-          if (-not $sln) { Write-Error "No .sln generated - check the Generate step"; exit 1 }
-          "path=$($sln.FullName)" >> $env:GITHUB_OUTPUT
+          Write-Host "=== Every .sln / .vcxproj in the repo ==="
+          Get-ChildItem -Recurse -Include *.sln,*.slnx,*.vcxproj -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName }
+
+          Write-Host "=== What's in the build folders ==="
+          foreach ($d in "paint\build","base\build","build") {
+            if (Test-Path $d) { Write-Host "--- $d ---"; Get-ChildItem $d | ForEach-Object { $_.Name } }
+          }
+
+          $proj = Get-ChildItem -Recurse -Include *.sln,*.slnx -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $proj) { $proj = Get-ChildItem -Recurse -Filter *.vcxproj -ErrorAction SilentlyContinue | Select-Object -First 1 }
+          if (-not $proj) { Write-Error "No project file anywhere - send Claude this log"; exit 1 }
+          Write-Host "Using: $($proj.FullName)"
+          "path=$($proj.FullName)" >> $env:GITHUB_OUTPUT
 
       - name: Build
         shell: pwsh
