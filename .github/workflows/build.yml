@@ -48,12 +48,14 @@ jobs:
         id: pkg
         shell: pwsh
         run: |
-          Copy-Item paint\build\x64\Release\ArmorPaint.exe paint\build\out\
-          Rename-Item paint\build\out ArmorPaint
+          New-Item -ItemType Directory -Force dist\ArmorPaint | Out-Null
+          Copy-Item paint\build\out\* dist\ArmorPaint\ -Recurse
+          Copy-Item paint\build\x64\Release\ArmorPaint.exe dist\ArmorPaint\
           $sha  = git rev-parse --short HEAD
           $date = Get-Date -Format yyyy-MM-dd
           $zip  = "ArmorPaint-Windows-$date.zip"
-          Compress-Archive -Path paint\build\ArmorPaint -DestinationPath $zip
+          Compress-Archive -Path dist\ArmorPaint -DestinationPath $zip
+          Get-ChildItem dist\ArmorPaint | ForEach-Object { $_.Name }
           "tag=build-$date-$sha" >> $env:GITHUB_OUTPUT
           "zip=$zip"            >> $env:GITHUB_OUTPUT
           "sha=$sha"            >> $env:GITHUB_OUTPUT
@@ -61,7 +63,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ArmorPaint-Windows
-          path: paint/build/ArmorPaint
+          path: dist/ArmorPaint
           retention-days: 7
 
       - name: Publish release
