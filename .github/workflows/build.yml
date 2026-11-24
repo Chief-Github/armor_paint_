@@ -17,14 +17,37 @@ jobs:
 
       - name: Generate VS project
         working-directory: paint
+        shell: cmd
         run: ..\base\make
 
-      - name: Build
+      - name: Find the .sln
+        id: sln
         working-directory: paint
-        run: msbuild build\ArmorPaint.sln /p:Configuration=Release /p:Platform=x64
+        shell: pwsh
+        run: |
+          Get-ChildItem -Recurse -Depth 3 -Filter *.sln | ForEach-Object { $_.FullName }
+          $sln = Get-ChildItem -Recurse -Filter *.sln | Select-Object -First 1
+          if (-not $sln) { Write-Error "No .sln generated - check the Generate step"; exit 1 }
+          "path=$($sln.FullName)" >> $env:GITHUB_OUTPUT
+
+      - name: Build
+        shell: pwsh
+        run: msbuild "${{ steps.sln.outputs.path }}" /p:Configuration=Release /p:Platform=x64 /m
+
+      - name: Show where the exe landed
+        working-directory: paint
+        shell: pwsh
+        run: Get-ChildItem -Recurse -Filter *.exe | ForEach-Object { $_.FullName }
 
       - uses: actions/upload-artifact@v4
         with:
           name: ArmorPaint-Windows
-          path: paint/build
+          path: |
+            paint/build
+            !paint/build/**/*.obj
+            !paint/build/**/*.pdb
+            !paint/build/**/*.ilk
+            !paint/build/**/*.tlog
+            !paint/build/**/*.iobj
+            !paint/build/**/*.ipdb
           retention-days: 7
