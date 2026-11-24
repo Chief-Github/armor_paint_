@@ -12,6 +12,11 @@ Automatic Windows builds of [ArmorPaint](https://github.com/armory3d/armorpaint)
 
 It runs **every Sunday at 03:00 UTC**
 
+<br>
+<br>
+🐍
+<br>
+<br>
 
 ## 📜 Licence & credits
 
