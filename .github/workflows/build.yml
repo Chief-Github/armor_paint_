@@ -5,6 +5,9 @@ on:
   schedule:
     - cron: '0 3 * * 0'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
@@ -31,17 +34,9 @@ jobs:
         id: sln
         shell: pwsh
         run: |
-          Write-Host "=== Every .sln / .vcxproj in the repo ==="
-          Get-ChildItem -Recurse -Include *.sln,*.slnx,*.vcxproj -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName }
-
-          Write-Host "=== What's in the build folders ==="
-          foreach ($d in "paint\build","base\build","build") {
-            if (Test-Path $d) { Write-Host "--- $d ---"; Get-ChildItem $d | ForEach-Object { $_.Name } }
-          }
-
           $proj = Get-ChildItem -Recurse -Include *.sln,*.slnx -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $proj) { $proj = Get-ChildItem -Recurse -Filter *.vcxproj -ErrorAction SilentlyContinue | Select-Object -First 1 }
-          if (-not $proj) { Write-Error "No project file anywhere - send Claude this log"; exit 1 }
+          if (-not $proj) { Write-Error "No project file found"; exit 1 }
           Write-Host "Using: $($proj.FullName)"
           "path=$($proj.FullName)" >> $env:GITHUB_OUTPUT
 
@@ -49,20 +44,33 @@ jobs:
         shell: pwsh
         run: msbuild "${{ steps.sln.outputs.path }}" /p:Configuration=Release /p:Platform=x64 /m
 
-      - name: Show where the exe landed
-        working-directory: paint
+      - name: Package
+        id: pkg
         shell: pwsh
-        run: Get-ChildItem -Recurse -Filter *.exe | ForEach-Object { $_.FullName }
+        run: |
+          Copy-Item paint\build\x64\Release\ArmorPaint.exe paint\build\out\
+          Rename-Item paint\build\out ArmorPaint
+          $sha  = git rev-parse --short HEAD
+          $date = Get-Date -Format yyyy-MM-dd
+          $zip  = "ArmorPaint-Windows-$date.zip"
+          Compress-Archive -Path paint\build\ArmorPaint -DestinationPath $zip
+          "tag=build-$date-$sha" >> $env:GITHUB_OUTPUT
+          "zip=$zip"            >> $env:GITHUB_OUTPUT
+          "sha=$sha"            >> $env:GITHUB_OUTPUT
 
       - uses: actions/upload-artifact@v4
         with:
           name: ArmorPaint-Windows
-          path: |
-            paint/build
-            !paint/build/**/*.obj
-            !paint/build/**/*.pdb
-            !paint/build/**/*.ilk
-            !paint/build/**/*.tlog
-            !paint/build/**/*.iobj
-            !paint/build/**/*.ipdb
+          path: paint/build/ArmorPaint
           retention-days: 7
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.pkg.outputs.tag }}
+          name: ArmorPaint ${{ steps.pkg.outputs.tag }}
+          body: |
+            Automatic Windows build of [armory3d/armorpaint](https://github.com/armory3d/armorpaint) at commit `${{ steps.pkg.outputs.sha }}`.
+            Unzip, open the ArmorPaint folder, run ArmorPaint.exe.
+          files: ${{ steps.pkg.outputs.zip }}
+          make_latest: true
