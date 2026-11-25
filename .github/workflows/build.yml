@@ -15,6 +15,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: armory3d/armorpaint
+          ref: 26.11
 
       - uses: microsoft/setup-msbuild@v2
 
